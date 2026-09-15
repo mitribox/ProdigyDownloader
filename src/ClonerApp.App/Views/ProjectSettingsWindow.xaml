@@ -1,0 +1,196 @@
+<Window x:Class="ClonerApp.App.Views.ProjectSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:ClonerApp.App.Converters"
+        Title="{Binding WindowTitle}"
+        Height="640" Width="860"
+        MinHeight="520" MinWidth="720"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip">
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolVisible"/>
+        <conv:InverseBoolConverter x:Key="NotBool"/>
+    </Window.Resources>
+
+    <DockPanel Margin="16">
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <TextBlock DockPanel.Dock="Left" Text="{Binding StatusMessage}" Foreground="{StaticResource MutedBrush}"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancel" Style="{StaticResource SecondaryButton}" Command="{Binding CancelCommand}" Margin="0,0,8,0"/>
+                <Button Content="Save" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource NotBool}}"/>
+            </StackPanel>
+        </DockPanel>
+
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Config.ValidationError}" Foreground="#B42318" Margin="0,0,0,8" TextWrapping="Wrap"/>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Style="{StaticResource CardBorder}" Padding="8">
+                <ListBox ItemsSource="{Binding Config.SettingSections}"
+                         SelectedItem="{Binding Config.SelectedSection}"
+                         BorderThickness="0"
+                         Background="Transparent">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="10,8"/>
+                            <Setter Property="Margin" Value="0,0,0,2"/>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid>
+                        <!-- General -->
+                        <StackPanel Visibility="{Binding Config.IsGeneral, Converter={StaticResource BoolVisible}}">
+                            <TextBlock Text="General" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            <TextBlock Text="Project name" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding Config.ProjectName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
+                            <CheckBox Content="Project enabled (schedule/monitor)" IsChecked="{Binding Config.IsEnabled}"/>
+                        </StackPanel>
+
+                        <!-- Starting Addresses -->
+                        <StackPanel Visibility="{Binding Config.IsStartingAddresses, Converter={StaticResource BoolVisible}}">
+                            <TextBlock Text="Starting Addresses" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            <TextBlock Text="URL selection mode" Margin="0,0,0,4"/>
+                            <ComboBox ItemsSource="{Binding Config.UrlInputModes}" SelectedItem="{Binding Config.UrlInputMode}" Margin="0,0,0,12"/>
+                            <TextBlock Text="Start URL(s) — one per line" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding Config.StartUrls, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="120"
+                                     TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"/>
+                            <StackPanel Visibility="{Binding Config.IsAdvancedUrlMode, Converter={StaticResource BoolVisible}}">
+                                <TextBlock Text="URL regex" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding Config.UrlRegex, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"
+                                           Text="Advanced: only follow page links that match this regex. Example: ^https://xyz\.com/blog\.php/"/>
+                            </StackPanel>
+                            <TextBlock Visibility="{Binding Config.IsSimpleUrlMode, Converter={StaticResource BoolVisible}}"
+                                       TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"
+                                       Text="Simple: crawl from the listed start URLs without a regex filter."/>
+                        </StackPanel>
+
+                        <!-- Scan Settings -->
+                        <StackPanel Visibility="{Binding Config.IsScanSettings, Converter={StaticResource BoolVisible}}">
+                            <TextBlock Text="Scan Settings" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Scan depth" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding Config.MaxDepth}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Max pages" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding Config.MaxPages}"/>
+                                </StackPanel>
+                            </Grid>
+                            <CheckBox Content="Same domain only" IsChecked="{Binding Config.SameDomainOnly}"/>
+                            <CheckBox Content="Scan only within the starting folder and below" IsChecked="{Binding Config.ScanWithinStartingFolder}"/>
+                            <CheckBox Content="Ignore main/home page" IsChecked="{Binding Config.IgnoreHomePage}"/>
+                            <CheckBox Content="Always scan image links" IsChecked="{Binding Config.AlwaysScanImageLinks}"/>
+                            <CheckBox Content="Honor robots.txt (recorded for future use)" IsChecked="{Binding Config.HonorRobotsTxt}"/>
+                        </StackPanel>
+
+                        <!-- File Types -->
+                        <StackPanel Visibility="{Binding Config.IsFileTypes, Converter={StaticResource BoolVisible}}">
+                            <TextBlock Text="File Types" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            <TextBlock Text="Category" Margin="0,0,0,4"/>
+                            <ComboBox ItemsSource="{Binding Config.MediaCategories}" SelectedItem="{Binding Config.MediaCategory}" Margin="0,0,0,12"/>
+                            <TextBlock Text="Extensions" Margin="0,0,0,8"/>
+                            <ItemsControl ItemsSource="{Binding Config.ExtensionOptions}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Content="{Binding Extension}" IsChecked="{Binding IsSelected}" Margin="0,0,16,8" MinWidth="70"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Size Filters -->
+                        <StackPanel Visibility="{Binding Config.IsSizeFilters, Converter={StaticResource BoolVisible}}">
+                            <TextBlock Text="Size Filters" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            <TextBlock Text="Optional — leave blank to skip" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,12"/>
+                            <TextBlock Text="Minimum file size" Margin="0,0,0,4"/>
+                            <DockPanel Margin="0,0,0,12">
+                                <ComboBox DockPanel.Dock="Right" Width="80" ItemsSource="{Binding Config.SizeUnits}" SelectedItem="{Binding Config.MinFileSizeUnit}" Margin="8,0,0,0"/>
+                                <TextBox Text="{Binding Config.MinFileSizeText, UpdateSourceTrigger=PropertyChanged}"/>
+                            </DockPanel>
+                            <TextBlock Text="Minimum width (px)" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding Config.MinWidthText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
+                            <TextBlock Text="Minimum height (px)" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding Config.MinHeightText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"
+                                       Text="Either width or height can qualify when both are set. Dimensions apply to images only."/>
+                        </StackPanel>
+
+                        <!-- Download Limits -->
+                        <StackPanel Visibility="{Binding Config.IsDownloadLimits, Converter={StaticResource BoolVisible}}">
+                            <TextBlock Text="Download Limits" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            <TextBlock Text="Max simultaneous connections (1–16)" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding Config.MaxConnections}" Margin="0,0,0,12"/>
+                            <TextBlock Text="Delay between page requests (ms)" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding Config.PageDelayMs}" Margin="0,0,0,12"/>
+                            <CheckBox Content="Skip duplicates by content hash" IsChecked="{Binding Config.DeduplicateByHash}"/>
+                            <CheckBox Content="Save a versioned file when content changes" IsChecked="{Binding Config.VersionOnChange}"/>
+                        </StackPanel>
+
+                        <!-- Storage -->
+                        <StackPanel Visibility="{Binding Config.IsStorage, Converter={StaticResource BoolVisible}}">
+                            <TextBlock Text="Storage" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            <TextBlock Text="Output folder" Margin="0,0,0,4"/>
+                            <DockPanel Margin="0,0,0,12">
+                                <Button DockPanel.Dock="Right" Content="Browse…" Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding Config.BrowseFolderCommand}" Margin="8,0,0,0"/>
+                                <TextBox Text="{Binding Config.OutputRoot, UpdateSourceTrigger=PropertyChanged}"/>
+                            </DockPanel>
+                            <TextBlock Text="How to store files" Margin="0,0,0,8"/>
+                            <ComboBox ItemsSource="{Binding Config.StorageChoices}"
+                                      SelectedValue="{Binding Config.StorageLayout}"
+                                      SelectedValuePath="Value"
+                                      DisplayMemberPath="Label"
+                                      Margin="0,0,0,8"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"
+                                       Text="A = single folder. B = one folder per page title."/>
+                        </StackPanel>
+
+                        <!-- Schedule -->
+                        <StackPanel Visibility="{Binding Config.IsSchedule, Converter={StaticResource BoolVisible}}">
+                            <TextBlock Text="Schedule" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            <TextBlock Text="Run mode" Margin="0,0,0,4"/>
+                            <ComboBox ItemsSource="{Binding Config.RunModes}" SelectedItem="{Binding Config.RunMode}" Margin="0,0,0,12"/>
+                            <TextBlock Text="Monitor interval (minutes)" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding Config.MonitorIntervalMinutes}" Margin="0,0,0,12"/>
+                            <TextBlock Text="Schedule time (HH:mm, local)" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding Config.ScheduleTime}" Margin="0,0,0,12"/>
+                            <TextBlock Text="Schedule days" Margin="0,0,0,8"/>
+                            <WrapPanel>
+                                <CheckBox Content="Mon" IsChecked="{Binding Config.ScheduleMon}" Margin="0,0,12,8"/>
+                                <CheckBox Content="Tue" IsChecked="{Binding Config.ScheduleTue}" Margin="0,0,12,8"/>
+                                <CheckBox Content="Wed" IsChecked="{Binding Config.ScheduleWed}" Margin="0,0,12,8"/>
+                                <CheckBox Content="Thu" IsChecked="{Binding Config.ScheduleThu}" Margin="0,0,12,8"/>
+                                <CheckBox Content="Fri" IsChecked="{Binding Config.ScheduleFri}" Margin="0,0,12,8"/>
+                                <CheckBox Content="Sat" IsChecked="{Binding Config.ScheduleSat}" Margin="0,0,12,8"/>
+                                <CheckBox Content="Sun" IsChecked="{Binding Config.ScheduleSun}" Margin="0,0,12,8"/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>
