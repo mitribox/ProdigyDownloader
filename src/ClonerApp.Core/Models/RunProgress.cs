@@ -13,4 +13,6 @@ public sealed class RunProgress
     public int Filtered { get; init; }
     public bool IsCompleted { get; init; }
     public bool IsFailed { get; init; }
+    public bool IsCancelled { get; init; }
+    public bool IsPaused { get; init; }
 }

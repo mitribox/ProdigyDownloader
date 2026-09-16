@@ -2,7 +2,7 @@
 ; Compile with Inno Setup after publishing to publish\win-x64
 
 #define MyAppName "ProdigyDownloader"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "ProdigyNova"
 #define MyAppURL "https://www.prodigynova.com"
 #define MyAppExeName "ProdigyDownloader.exe"
@@ -32,7 +32,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 VersionInfoVersion={#MyAppVersion}
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoProductName={#MyAppName}
-VersionInfoCopyright=Copyright (C) 2026 ProdigyNova — https://www.prodigynova.com
+VersionInfoCopyright=Copyright (C) 2026 ProdigyNova - https://www.prodigynova.com
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -45,7 +45,7 @@ Source: "..\publish\win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesu
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{group}\Website — ProdigyNova"; Filename: "{#MyAppURL}"
+Name: "{group}\Website - ProdigyNova"; Filename: "{#MyAppURL}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 

@@ -8,6 +8,7 @@
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
                 <Button Content="Open folder" Style="{StaticResource SecondaryButton}" Command="{Binding OpenFolderCommand}" Margin="0,0,8,0"/>
+                <Button Content="Pause" Style="{StaticResource SecondaryButton}" Command="{Binding PauseCommand}" Margin="0,0,8,0"/>
                 <Button Content="Cancel run" Style="{StaticResource SecondaryButton}" Command="{Binding CancelCommand}"/>
             </StackPanel>
             <StackPanel>

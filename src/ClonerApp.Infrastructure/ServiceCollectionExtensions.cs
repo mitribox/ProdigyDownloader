@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProjectRepository, ProjectRepository>();
         services.AddScoped<IAssetRepository, AssetRepository>();
         services.AddScoped<IRunRepository, RunRepository>();
+        services.AddScoped<ICrawledPageRepository, CrawledPageRepository>();
 
         return services;
     }

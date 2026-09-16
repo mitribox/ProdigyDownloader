@@ -5,37 +5,46 @@
         Height="640" Width="980"
         MinHeight="480" MinWidth="800"
         WindowStartupLocation="CenterScreen">
-    <DockPanel Margin="20">
-        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                <Button Content="New Project" Style="{StaticResource PrimaryButton}" Command="{Binding NewProjectCommand}" Margin="0,0,8,0"/>
-                <Button Content="Refresh" Style="{StaticResource SecondaryButton}" Command="{Binding LoadProjectsCommand}"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal">
-                <Image Source="/Assets/logo-icon.png" Width="44" Height="44" Stretch="Uniform" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                <StackPanel VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Prodigy" FontSize="26" FontWeight="SemiBold" Foreground="White"/>
-                        <TextBlock Text="Downloader" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}"/>
-                    </StackPanel>
-                    <TextBlock Text="by ProdigyNova — download images and videos from websites"
-                               Foreground="{StaticResource MutedBrush}" Margin="0,2,0,0"/>
+    <DockPanel>
+        <!-- Dark header for logo contrast -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource HeaderBgBrush}" Padding="20,16">
+            <DockPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                    <Button Content="New Project" Style="{StaticResource PrimaryButton}" Command="{Binding NewProjectCommand}" Margin="0,0,8,0"/>
+                    <Button Content="Refresh" Style="{StaticResource HeaderSecondaryButton}" Command="{Binding LoadProjectsCommand}"/>
                 </StackPanel>
-            </StackPanel>
-        </DockPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Image Source="/Assets/logo-icon.png" Width="44" Height="44" Stretch="Uniform" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Prodigy" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource HeaderTextBrush}"/>
+                            <TextBlock Text="Downloader" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}"/>
+                        </StackPanel>
+                        <TextBlock Text="by ProdigyNova: download images and videos from websites"
+                                   Foreground="{StaticResource HeaderMutedBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </DockPanel>
+        </Border>
 
-        <Border DockPanel.Dock="Bottom" Padding="0,12,0,0">
+        <Border DockPanel.Dock="Bottom" Padding="20,10" Background="{StaticResource BgBrush}">
             <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis"/>
         </Border>
 
-        <Grid>
+        <!-- Light content: equal-height panels -->
+        <Grid Margin="20" Background="{StaticResource BgBrush}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
                 <ColumnDefinition Width="220"/>
             </Grid.ColumnDefinitions>
 
-            <Border Style="{StaticResource CardBorder}" Margin="0,0,12,0" Padding="0">
-                <DataGrid ItemsSource="{Binding Projects}"
+            <Border Grid.Column="0"
+                    Style="{StaticResource CardBorder}"
+                    Padding="0"
+                    VerticalAlignment="Stretch">
+                <DataGrid x:Name="ProjectsGrid"
+                          ItemsSource="{Binding Projects}"
                           SelectedItem="{Binding SelectedProject}"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
@@ -44,7 +53,17 @@
                           RowHeaderWidth="0"
                           GridLinesVisibility="Horizontal"
                           BorderThickness="0"
-                          SelectionMode="Single">
+                          SelectionMode="Single"
+                          PreviewMouseRightButtonDown="ProjectsGrid_PreviewMouseRightButtonDown"
+                          ContextMenuOpening="ProjectsGrid_ContextMenuOpening">
+                    <DataGrid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Edit" Command="{Binding EditSelectedCommand}"/>
+                            <MenuItem Header="Start / Stop" Command="{Binding StartOrStopSelectedCommand}"/>
+                            <MenuItem Header="{Binding PauseResumeLabel}" Command="{Binding PauseSelectedCommand}"/>
+                            <MenuItem Header="Details" Command="{Binding OpenDetailsCommand}"/>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.2*"/>
                         <DataGridTextColumn Header="URL" Binding="{Binding StartUrl}" Width="2*"/>
@@ -56,19 +75,26 @@
                 </DataGrid>
             </Border>
 
-            <Border Grid.Column="1" Style="{StaticResource CardBorder}">
-                <StackPanel>
-                    <TextBlock Text="Actions" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                    <Button Content="Start" Style="{StaticResource PrimaryButton}" Command="{Binding StartSelectedCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
-                    <Button Content="Edit" Style="{StaticResource SecondaryButton}" Command="{Binding EditSelectedCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
-                    <Button Content="Cancel" Style="{StaticResource SecondaryButton}" Command="{Binding CancelSelectedCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
-                    <Button Content="Details" Style="{StaticResource SecondaryButton}" Command="{Binding OpenDetailsCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
-                    <Button Content="Open folder" Style="{StaticResource SecondaryButton}" Command="{Binding OpenFolderCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
-                    <Button Content="Enable / Disable" Style="{StaticResource SecondaryButton}" Command="{Binding ToggleEnabledCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
-                    <Button Content="Delete" Style="{StaticResource SecondaryButton}" Command="{Binding DeleteSelectedCommand}" HorizontalAlignment="Stretch"/>
-                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,16,0,0"
-                               Text="Edit opens full project settings. New Project opens the setup wizard."/>
-                </StackPanel>
+            <Border Grid.Column="2"
+                    Style="{StaticResource CardBorder}"
+                    VerticalAlignment="Stretch">
+                <DockPanel LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Top" Text="Actions" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                    <StackPanel DockPanel.Dock="Top">
+                        <Button Content="{Binding StartStopLabel}" Style="{StaticResource PrimaryButton}" Command="{Binding StartOrStopSelectedCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
+                        <Button Content="{Binding PauseResumeLabel}" Style="{StaticResource SecondaryButton}" Command="{Binding PauseSelectedCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
+                        <Button Content="Edit" Style="{StaticResource SecondaryButton}" Command="{Binding EditSelectedCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
+                        <Button Content="Cancel" Style="{StaticResource SecondaryButton}" Command="{Binding CancelSelectedCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
+                        <Button Content="Details" Style="{StaticResource SecondaryButton}" Command="{Binding OpenDetailsCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
+                        <Button Content="Open folder" Style="{StaticResource SecondaryButton}" Command="{Binding OpenFolderCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
+                        <Button Content="Enable / Disable" Style="{StaticResource SecondaryButton}" Command="{Binding ToggleEnabledCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
+                        <Button Content="Delete" Style="{StaticResource SecondaryButton}" Command="{Binding DeleteSelectedCommand}" HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                    <TextBlock DockPanel.Dock="Bottom"
+                               TextWrapping="Wrap"
+                               Foreground="{StaticResource MutedBrush}"
+                               Text="Right-click a project for Edit, Start/Stop, Pause, and Details. Enable allows automatic Watch/Schedule runs."/>
+                </DockPanel>
             </Border>
         </Grid>
     </DockPanel>

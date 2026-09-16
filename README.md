@@ -2,7 +2,7 @@
 
 **ProdigyDownloader** is an open-source Windows desktop app by **[ProdigyNova](https://www.prodigynova.com)** for crawling websites and downloading images and videos with filters, concurrency control, scheduling, and organized storage.
 
-**Version:** 1.0.0  
+**Version:** 1.1.0  
 **License:** [GNU GPL v3](LICENSE) — Copyright © ProdigyNova ([www.prodigynova.com](https://www.prodigynova.com))  
 **Repository:** [github.com/mitribox/ProdigyDownloader](https://github.com/mitribox/ProdigyDownloader)
 
@@ -10,7 +10,7 @@
 
 Get the latest Windows build from **[Releases](https://github.com/mitribox/ProdigyDownloader/releases)**:
 
-- **Installer** — `ProdigyDownloader-Setup-1.0.0.exe` (recommended)
+- **Installer** — `ProdigyDownloader-Setup-1.1.0.exe` (recommended)
 - **Portable** — `ProdigyDownloader-win-x64.zip` (no install)
 
 Requires Windows 10/11 (x64).
@@ -20,13 +20,15 @@ Requires Windows 10/11 (x64).
 - Project wizard and full editable project settings
 - Photos / videos / both with per-extension selection
 - Optional minimum file size and image dimension filters
+- **Exclude if** rules (file name, page title, tag, URL) with AND/OR
 - Configurable simultaneous download connections
 - Storage modes:
   - **Single folder** — all files in one directory
   - **By page title** — folder per page title for easier browsing
 - Simple URL list or advanced URL regex filtering
-- Scan options: within starting folder, ignore home page, always scan image links
-- Run modes: once, schedule, or monitor for new media
+- Scan options: entire-site crawl (same domain + sitemap), within starting folder, ignore home page, always scan image links
+- Run modes: download once, schedule, or **Watch for new posts** (incremental checks + autodownload)
+- Pause / resume / cancel active downloads; project context menu
 - SQLite download archive (skip already-downloaded files)
 
 ## Screenshots

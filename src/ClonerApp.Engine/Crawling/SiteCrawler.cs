@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Net;
+using ClonerApp.Core.Interfaces;
 using ClonerApp.Core.Models;
 using Microsoft.Extensions.Logging;
 
@@ -28,7 +30,11 @@ public sealed class SiteCrawler
         bool alwaysScanImageLinks,
         string? urlRegex,
         IProgress<string>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<CancellationToken, Task>? waitIfPaused = null,
+        bool incrementalWatch = false,
+        Guid? projectId = null,
+        ICrawledPageRepository? pageRepository = null)
     {
         var seeds = startUrls
             .Select(u => u.Trim())
@@ -52,10 +58,14 @@ public sealed class SiteCrawler
 
         var media = new Dictionary<string, MediaCandidate>(StringComparer.OrdinalIgnoreCase);
         var pagesCrawled = 0;
+        var pagesSkippedUnchanged = 0;
 
         while (queue.Count > 0 && pagesCrawled < maxPages)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (waitIfPaused is not null)
+                await waitIfPaused(cancellationToken).ConfigureAwait(false);
+
             var (url, depth) = queue.Dequeue();
             if (!visited.TryAdd(url, 0))
                 continue;
@@ -77,7 +87,34 @@ public sealed class SiteCrawler
 
             try
             {
-                using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                CrawledPage? prior = null;
+                if (incrementalWatch && projectId is Guid pid && pageRepository is not null)
+                    prior = await pageRepository.GetByUrlAsync(pid, url, cancellationToken);
+
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                if (incrementalWatch && prior is not null)
+                {
+                    if (!string.IsNullOrEmpty(prior.ETag))
+                        request.Headers.TryAddWithoutValidation("If-None-Match", prior.ETag);
+                    if (!string.IsNullOrEmpty(prior.LastModified) &&
+                        DateTimeOffset.TryParse(prior.LastModified, out var lm))
+                    {
+                        request.Headers.IfModifiedSince = lm;
+                    }
+                }
+
+                using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                if (response.StatusCode == HttpStatusCode.NotModified)
+                {
+                    pagesSkippedUnchanged++;
+                    if (prior is not null && projectId is Guid p304 && pageRepository is not null)
+                    {
+                        prior.LastSeenAtUtc = DateTime.UtcNow;
+                        await pageRepository.UpsertAsync(prior, cancellationToken);
+                    }
+                    continue;
+                }
+
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogWarning("Skip {Url}: HTTP {Status}", url, (int)response.StatusCode);
@@ -95,11 +132,38 @@ public sealed class SiteCrawler
                 var html = await response.Content.ReadAsStringAsync(cancellationToken);
                 pagesCrawled++;
 
+                var etag = response.Headers.ETag?.Tag;
+                var lastModified = response.Content.Headers.LastModified?.ToString("R");
+                var hash = SitemapDiscoverer.ComputeContentHash(html);
+                var contentChanged = prior is null ||
+                    !string.Equals(prior.ContentHash, hash, StringComparison.OrdinalIgnoreCase);
+
+                if (incrementalWatch && projectId is Guid projectKey && pageRepository is not null)
+                {
+                    await pageRepository.UpsertAsync(new CrawledPage
+                    {
+                        ProjectId = projectKey,
+                        Url = url,
+                        ETag = etag,
+                        LastModified = lastModified,
+                        ContentHash = hash,
+                        LastSeenAtUtc = DateTime.UtcNow
+                    }, cancellationToken);
+                }
+
                 var pageUri = new Uri(url);
                 var extracted = _extractor.Extract(html, pageUri, alwaysScanImageLinks);
 
-                foreach (var item in extracted.Media)
-                    media.TryAdd(item.Url, item);
+                // Watch: only collect media from new or changed pages
+                if (!incrementalWatch || contentChanged)
+                {
+                    foreach (var item in extracted.Media)
+                        media.TryAdd(item.Url, item);
+                }
+                else
+                {
+                    pagesSkippedUnchanged++;
+                }
 
                 if (depth < maxDepth)
                 {
@@ -131,8 +195,11 @@ public sealed class SiteCrawler
             }
         }
 
-        return new CrawlResult(pagesCrawled, media.Values.ToList());
+        return new CrawlResult(pagesCrawled, media.Values.ToList(), pagesSkippedUnchanged);
     }
 }
 
-public sealed record CrawlResult(int PagesCrawled, IReadOnlyList<MediaCandidate> Media);
+public sealed record CrawlResult(
+    int PagesCrawled,
+    IReadOnlyList<MediaCandidate> Media,
+    int PagesSkippedUnchanged = 0);

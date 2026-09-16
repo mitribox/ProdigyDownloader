@@ -12,6 +12,7 @@ public sealed class ClonerDbContext : DbContext
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<CrawlRun> Runs => Set<CrawlRun>();
     public DbSet<Asset> Assets => Set<Asset>();
+    public DbSet<CrawledPage> CrawledPages => Set<CrawledPage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -52,6 +53,20 @@ public sealed class ClonerDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => new { x.ProjectId, x.NormalizedUrl }).IsUnique();
             e.HasIndex(x => new { x.ProjectId, x.ContentHash });
+        });
+
+        modelBuilder.Entity<CrawledPage>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Url).HasMaxLength(2048).IsRequired();
+            e.Property(x => x.ETag).HasMaxLength(256);
+            e.Property(x => x.LastModified).HasMaxLength(128);
+            e.Property(x => x.ContentHash).HasMaxLength(64);
+            e.HasOne(x => x.Project)
+                .WithMany()
+                .HasForeignKey(x => x.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.ProjectId, x.Url }).IsUnique();
         });
     }
 }

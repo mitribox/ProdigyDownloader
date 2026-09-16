@@ -11,7 +11,7 @@ namespace ClonerApp.App.ViewModels;
 
 public partial class WizardViewModel : ObservableObject
 {
-    private const int LastStep = 7;
+    private const int LastStep = 8;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ICrawlEngine _engine;
 
@@ -54,10 +54,11 @@ public partial class WizardViewModel : ObservableObject
             1 => "2. Scan settings",
             2 => "3. Media types",
             3 => "4. Filters (optional)",
-            4 => "5. Performance",
-            5 => "6. Storage",
-            6 => "7. Run mode",
-            _ => "8. Review"
+            4 => "5. Exclude if",
+            5 => "6. Performance",
+            6 => "7. Storage",
+            7 => "8. Run mode",
+            _ => "9. Review"
         };
     }
 
@@ -118,12 +119,12 @@ public partial class WizardViewModel : ObservableObject
     {
         0 => ValidateAddresses(),
         2 when !Config.ExtensionOptions.Any(x => x.IsSelected) => "Select at least one file extension.",
-        5 when string.IsNullOrWhiteSpace(Config.OutputRoot) => "Output folder is required.",
-        6 when Config.RunMode == RunMode.Monitor && Config.MonitorIntervalMinutes < 1 =>
-            "Monitor interval must be at least 1 minute.",
-        6 when Config.RunMode == RunMode.Schedule && !TimeSpan.TryParse(Config.ScheduleTime, out _) =>
+        6 when string.IsNullOrWhiteSpace(Config.OutputRoot) => "Output folder is required.",
+        7 when Config.RunMode == RunMode.Monitor && Config.MonitorIntervalMinutes < 1 =>
+            "Watch interval must be at least 1 minute.",
+        7 when Config.RunMode == RunMode.Schedule && !TimeSpan.TryParse(Config.ScheduleTime, out _) =>
             "Schedule time must be HH:mm.",
-        7 => Config.Validate(),
+        8 => Config.Validate(),
         _ => null
     };
 

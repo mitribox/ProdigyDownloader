@@ -15,7 +15,7 @@ public partial class ProjectSettingsViewModel : ObservableObject
 
     public event EventHandler? CloseRequested;
 
-    [ObservableProperty] private string _windowTitle = "ProdigyDownloader — Project Settings";
+    [ObservableProperty] private string _windowTitle = "ProdigyDownloader: Project Settings";
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string? _statusMessage;
 
@@ -37,7 +37,7 @@ public partial class ProjectSettingsViewModel : ObservableObject
         }
 
         Config.LoadFrom(project);
-        WindowTitle = $"ProdigyDownloader — {project.Name}";
+        WindowTitle = $"ProdigyDownloader: {project.Name}";
     }
 
     [RelayCommand]

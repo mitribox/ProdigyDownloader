@@ -70,7 +70,11 @@ public partial class ProjectDetailViewModel : ObservableObject
             Skipped = e.Skipped;
             Failed = e.Failed;
             Filtered = e.Filtered;
-            Stats = e.IsFailed ? "Failed" : e.IsCompleted ? "Completed" : "Running";
+            Stats = e.IsFailed ? "Failed"
+                : e.IsCancelled ? "Cancelled"
+                : e.IsCompleted ? "Completed"
+                : e.IsPaused ? "Paused"
+                : "Running";
             LogLines.Insert(0, $"[{DateTime.Now:HH:mm:ss}] {e.Message}");
             while (LogLines.Count > 500) LogLines.RemoveAt(LogLines.Count - 1);
         });
@@ -86,4 +90,14 @@ public partial class ProjectDetailViewModel : ObservableObject
 
     [RelayCommand]
     private void Cancel() => _engine.Cancel(_projectId);
+
+    [RelayCommand]
+    private void Pause()
+    {
+        if (!_engine.IsRunning(_projectId)) return;
+        if (_engine.IsPaused(_projectId))
+            _engine.Resume(_projectId);
+        else
+            _engine.Pause(_projectId);
+    }
 }

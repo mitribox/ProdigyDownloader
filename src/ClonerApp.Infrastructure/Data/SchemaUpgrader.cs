@@ -18,6 +18,35 @@ public static class SchemaUpgrader
         await AddColumnIfMissingAsync(db, existing, "Projects", "ScanWithinStartingFolder", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
         await AddColumnIfMissingAsync(db, existing, "Projects", "IgnoreHomePage", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
         await AddColumnIfMissingAsync(db, existing, "Projects", "AlwaysScanImageLinks", "INTEGER NOT NULL DEFAULT 1", cancellationToken);
+        await AddColumnIfMissingAsync(db, existing, "Projects", "ExcludeRulesJson", "TEXT NULL", cancellationToken);
+        await AddColumnIfMissingAsync(db, existing, "Projects", "CrawlEntireSite", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
+
+        await EnsureCrawledPagesTableAsync(db, cancellationToken);
+    }
+
+    private static async Task EnsureCrawledPagesTableAsync(ClonerDbContext db, CancellationToken cancellationToken)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "CrawledPages" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_CrawledPages" PRIMARY KEY,
+                "ProjectId" TEXT NOT NULL,
+                "Url" TEXT NOT NULL,
+                "ETag" TEXT NULL,
+                "LastModified" TEXT NULL,
+                "ContentHash" TEXT NULL,
+                "LastSeenAtUtc" TEXT NOT NULL,
+                CONSTRAINT "FK_CrawledPages_Projects_ProjectId" FOREIGN KEY ("ProjectId") REFERENCES "Projects" ("Id") ON DELETE CASCADE
+            );
+            """,
+            cancellationToken);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_CrawledPages_ProjectId_Url"
+            ON "CrawledPages" ("ProjectId", "Url");
+            """,
+            cancellationToken);
     }
 
     private static async Task<HashSet<string>> GetColumnsAsync(

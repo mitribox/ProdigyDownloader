@@ -33,6 +33,14 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SiteCrawler>>());
         });
 
+        services.AddTransient<SitemapDiscoverer>(sp =>
+        {
+            var factory = sp.GetRequiredService<IHttpClientFactory>();
+            return new SitemapDiscoverer(
+                factory.CreateClient("cloner"),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SitemapDiscoverer>>());
+        });
+
         services.AddTransient<MediaDownloader>();
         services.AddHostedService<ProjectSchedulerService>();
 

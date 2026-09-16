@@ -19,6 +19,7 @@ public sealed class Project
     public bool ScanWithinStartingFolder { get; set; }
     public bool IgnoreHomePage { get; set; }
     public bool AlwaysScanImageLinks { get; set; } = true;
+    public bool CrawlEntireSite { get; set; }
     public MediaCategory MediaCategory { get; set; } = MediaCategory.Both;
     public string SelectedExtensions { get; set; } = string.Empty;
     public long? MinFileSizeBytes { get; set; }
@@ -35,6 +36,7 @@ public sealed class Project
     public bool DeduplicateByHash { get; set; } = true;
     public bool VersionOnChange { get; set; } = true;
     public bool IsEnabled { get; set; } = true;
+    public string? ExcludeRulesJson { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAtUtc { get; set; }
     public DateTime? NextRunAtUtc { get; set; }

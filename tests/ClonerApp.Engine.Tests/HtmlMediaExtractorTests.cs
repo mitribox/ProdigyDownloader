@@ -21,6 +21,8 @@ public class HtmlMediaExtractorTests
         Assert.Contains(result.Media, m => m.Url.EndsWith("/a.png"));
         Assert.Contains(result.Media, m => m.Url.EndsWith("/clip.mp4"));
         Assert.Contains(result.PageLinks, l => l.Contains("page2.html"));
+        Assert.Equal("img", result.Media.First(m => m.Url.EndsWith("/a.png")).SourceTag);
+        Assert.Equal("a", result.Media.First(m => m.Url.EndsWith("/clip.mp4")).SourceTag);
     }
 
     [Fact]

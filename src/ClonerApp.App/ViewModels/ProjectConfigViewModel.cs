@@ -6,6 +6,7 @@ using ClonerApp.Core.Enums;
 using ClonerApp.Core.Models;
 using ClonerApp.Engine;
 using ClonerApp.Engine.Crawling;
+using ClonerApp.Engine.Filtering;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
@@ -18,6 +19,7 @@ namespace ClonerApp.App.ViewModels;
 public partial class ProjectConfigViewModel : ObservableObject
 {
     public ObservableCollection<ExtensionOption> ExtensionOptions { get; } = new();
+    public ObservableCollection<ExcludeRuleRowViewModel> ExcludeRules { get; } = new();
     public ObservableCollection<string> SettingSections { get; } = new()
     {
         "General",
@@ -25,6 +27,7 @@ public partial class ProjectConfigViewModel : ObservableObject
         "Scan Settings",
         "File Types",
         "Size Filters",
+        "Exclude Rules",
         "Download Limits",
         "Storage",
         "Schedule"
@@ -37,6 +40,7 @@ public partial class ProjectConfigViewModel : ObservableObject
     [ObservableProperty] private string? _urlRegex;
     [ObservableProperty] private int _maxDepth = 2;
     [ObservableProperty] private int _maxPages = 200;
+    [ObservableProperty] private bool _crawlEntireSite;
     [ObservableProperty] private bool _sameDomainOnly = true;
     [ObservableProperty] private bool _honorRobotsTxt = true;
     [ObservableProperty] private bool _scanWithinStartingFolder;
@@ -67,9 +71,38 @@ public partial class ProjectConfigViewModel : ObservableObject
     [ObservableProperty] private string? _validationError;
 
     public Array MediaCategories => Enum.GetValues(typeof(MediaCategory));
-    public Array RunModes => Enum.GetValues(typeof(RunMode));
     public Array UrlInputModes => Enum.GetValues(typeof(UrlInputMode));
     public string[] SizeUnits { get; } = ["KB", "MB"];
+
+    public IReadOnlyList<NamedChoice<RunMode>> RunModeChoices { get; } =
+    [
+        new(RunMode.Once, "Download once"),
+        new(RunMode.Schedule, "Run on a schedule"),
+        new(RunMode.Monitor, "Watch for new posts")
+    ];
+
+    public IReadOnlyList<NamedChoice<ExcludeField>> ExcludeFieldChoices { get; } =
+    [
+        new(ExcludeField.FileName, "File name"),
+        new(ExcludeField.PageTitle, "Page title"),
+        new(ExcludeField.Tag, "Tag"),
+        new(ExcludeField.Url, "URL")
+    ];
+
+    public IReadOnlyList<NamedChoice<ExcludeOperator>> ExcludeOperatorChoices { get; } =
+    [
+        new(ExcludeOperator.Contains, "contains"),
+        new(ExcludeOperator.Equals, "="),
+        new(ExcludeOperator.MatchesRegex, "matches regex"),
+        new(ExcludeOperator.DoesNotMatchRegex, "does not match regex"),
+        new(ExcludeOperator.DoesNotContain, "does not contain")
+    ];
+
+    public IReadOnlyList<NamedChoice<RuleJoin>> RuleJoinChoices { get; } =
+    [
+        new(RuleJoin.And, "AND"),
+        new(RuleJoin.Or, "OR")
+    ];
 
     public IReadOnlyList<StorageChoice> StorageChoices { get; } =
     [
@@ -84,13 +117,32 @@ public partial class ProjectConfigViewModel : ObservableObject
     public bool IsScanSettings => SelectedSection == "Scan Settings";
     public bool IsFileTypes => SelectedSection == "File Types";
     public bool IsSizeFilters => SelectedSection == "Size Filters";
+    public bool IsExcludeRules => SelectedSection == "Exclude Rules";
     public bool IsDownloadLimits => SelectedSection == "Download Limits";
     public bool IsStorage => SelectedSection == "Storage";
     public bool IsSchedule => SelectedSection == "Schedule";
+    public bool ShowLimitedScanControls => !CrawlEntireSite;
+    public bool IsRunOnce => RunMode == RunMode.Once;
+    public bool IsRunWatch => RunMode == RunMode.Monitor;
+    public bool IsRunSchedule => RunMode == RunMode.Schedule;
 
     public ProjectConfigViewModel()
     {
         RebuildExtensions();
+    }
+
+    partial void OnCrawlEntireSiteChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowLimitedScanControls));
+        if (value)
+            SameDomainOnly = true;
+    }
+
+    partial void OnRunModeChanged(RunMode value)
+    {
+        OnPropertyChanged(nameof(IsRunOnce));
+        OnPropertyChanged(nameof(IsRunWatch));
+        OnPropertyChanged(nameof(IsRunSchedule));
     }
 
     partial void OnUrlInputModeChanged(UrlInputMode value)
@@ -106,6 +158,7 @@ public partial class ProjectConfigViewModel : ObservableObject
         OnPropertyChanged(nameof(IsScanSettings));
         OnPropertyChanged(nameof(IsFileTypes));
         OnPropertyChanged(nameof(IsSizeFilters));
+        OnPropertyChanged(nameof(IsExcludeRules));
         OnPropertyChanged(nameof(IsDownloadLimits));
         OnPropertyChanged(nameof(IsStorage));
         OnPropertyChanged(nameof(IsSchedule));
@@ -121,6 +174,7 @@ public partial class ProjectConfigViewModel : ObservableObject
         UrlRegex = project.UrlRegex;
         MaxDepth = project.MaxDepth;
         MaxPages = project.MaxPages;
+        CrawlEntireSite = project.CrawlEntireSite;
         SameDomainOnly = project.SameDomainOnly;
         HonorRobotsTxt = project.HonorRobotsTxt;
         ScanWithinStartingFolder = project.ScanWithinStartingFolder;
@@ -172,6 +226,7 @@ public partial class ProjectConfigViewModel : ObservableObject
         DeduplicateByHash = project.DeduplicateByHash;
         VersionOnChange = project.VersionOnChange;
         IsEnabled = project.IsEnabled;
+        LoadExcludeRules(project.ExcludeRulesJson);
 
         var days = (project.ScheduleDays ?? "")
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -220,7 +275,7 @@ public partial class ProjectConfigViewModel : ObservableObject
             return "Output folder is required.";
 
         if (RunMode == RunMode.Monitor && MonitorIntervalMinutes < 1)
-            return "Monitor interval must be at least 1 minute.";
+            return "Watch interval must be at least 1 minute.";
 
         if (RunMode == RunMode.Schedule && !TimeSpan.TryParse(ScheduleTime, out _))
             return "Schedule time must be HH:mm.";
@@ -256,9 +311,10 @@ public partial class ProjectConfigViewModel : ObservableObject
         project.UrlRegex = string.IsNullOrWhiteSpace(UrlRegex) ? null : UrlRegex.Trim();
         project.MaxDepth = MaxDepth;
         project.MaxPages = MaxPages;
-        project.SameDomainOnly = SameDomainOnly;
+        project.CrawlEntireSite = CrawlEntireSite;
+        project.SameDomainOnly = CrawlEntireSite || SameDomainOnly;
         project.HonorRobotsTxt = HonorRobotsTxt;
-        project.ScanWithinStartingFolder = ScanWithinStartingFolder;
+        project.ScanWithinStartingFolder = CrawlEntireSite ? false : ScanWithinStartingFolder;
         project.IgnoreHomePage = IgnoreHomePage;
         project.AlwaysScanImageLinks = AlwaysScanImageLinks;
         project.MediaCategory = MediaCategory;
@@ -279,6 +335,9 @@ public partial class ProjectConfigViewModel : ObservableObject
         project.DeduplicateByHash = DeduplicateByHash;
         project.VersionOnChange = VersionOnChange;
         project.IsEnabled = IsEnabled;
+        project.ExcludeRulesJson = ExcludeRules.Count == 0
+            ? null
+            : ExcludeRuleEvaluator.SerializeRules(ExcludeRules.Select(r => r.ToModel()));
 
         if (project.RunMode == RunMode.Once)
             project.NextRunAtUtc = null;
@@ -302,17 +361,25 @@ public partial class ProjectConfigViewModel : ObservableObject
             $"URL mode: {UrlInputMode}\n" +
             $"URL(s): {StartUrls}\n" +
             (string.IsNullOrWhiteSpace(UrlRegex) ? "" : $"Regex: {UrlRegex}\n") +
-            $"Depth: {MaxDepth}, Max pages: {MaxPages}, Same domain: {SameDomainOnly}\n" +
-            $"Scan within folder: {ScanWithinStartingFolder}, Ignore home: {IgnoreHomePage}, Scan image links: {AlwaysScanImageLinks}\n" +
+            $"Depth: {(CrawlEntireSite ? "entire site" : MaxDepth.ToString())}, Max pages: {(CrawlEntireSite ? "entire site" : MaxPages.ToString())}, Same domain: {(CrawlEntireSite || SameDomainOnly)}\n" +
+            $"Scan within folder: {(CrawlEntireSite ? false : ScanWithinStartingFolder)}, Ignore home: {IgnoreHomePage}, Scan image links: {AlwaysScanImageLinks}\n" +
             $"Media: {MediaCategory} [{exts}]\n" +
             $"Filters: {filterText}\n" +
+            $"Exclude rules: {(ExcludeRules.Count == 0 ? "none" : ExcludeRules.Count.ToString())}\n" +
             $"Connections: {MaxConnections}, Delay: {PageDelayMs}ms\n" +
             $"Output folder: {OutputRoot}\n" +
             $"Storage: {(StorageLayout == StorageLayout.PageTitle ? "By page title" : "Single folder")}\n" +
-            $"Mode: {RunMode}" +
+            $"Mode: {RunModeLabel}" +
             (RunMode == RunMode.Monitor ? $" every {MonitorIntervalMinutes} min" : "") +
             (RunMode == RunMode.Schedule ? $" at {ScheduleTime}" : "");
     }
+
+    private string RunModeLabel => RunMode switch
+    {
+        RunMode.Monitor => "Watch for new posts",
+        RunMode.Schedule => "Run on a schedule",
+        _ => "Download once"
+    };
 
     [RelayCommand]
     private void BrowseFolder()
@@ -324,6 +391,47 @@ public partial class ProjectConfigViewModel : ObservableObject
         };
         if (dialog.ShowDialog() == true)
             OutputRoot = dialog.FolderName;
+    }
+
+    [RelayCommand]
+    private void AddExcludeRule()
+    {
+        ExcludeRules.Add(new ExcludeRuleRowViewModel
+        {
+            JoinWithPrevious = RuleJoin.Or,
+            IsFirst = ExcludeRules.Count == 0
+        });
+        RefreshExcludeRuleFlags();
+    }
+
+    [RelayCommand]
+    private void RemoveExcludeRule(ExcludeRuleRowViewModel? rule)
+    {
+        if (rule is null) return;
+        ExcludeRules.Remove(rule);
+        RefreshExcludeRuleFlags();
+    }
+
+    [RelayCommand]
+    private void ClearExcludeRules()
+    {
+        ExcludeRules.Clear();
+    }
+
+    private void LoadExcludeRules(string? json)
+    {
+        ExcludeRules.Clear();
+        foreach (var rule in ExcludeRuleEvaluator.ParseRules(json))
+        {
+            ExcludeRules.Add(ExcludeRuleRowViewModel.FromModel(rule));
+        }
+        RefreshExcludeRuleFlags();
+    }
+
+    private void RefreshExcludeRuleFlags()
+    {
+        for (var i = 0; i < ExcludeRules.Count; i++)
+            ExcludeRules[i].IsFirst = i == 0;
     }
 
     private void RebuildExtensions(bool preserveSelection = false)
@@ -359,4 +467,34 @@ public partial class ExtensionOption : ObservableObject
     private bool _isSelected;
 }
 
+public partial class ExcludeRuleRowViewModel : ObservableObject
+{
+    [ObservableProperty] private ExcludeField _field = ExcludeField.FileName;
+    [ObservableProperty] private ExcludeOperator _operator = ExcludeOperator.Contains;
+    [ObservableProperty] private string _value = "";
+    [ObservableProperty] private RuleJoin _joinWithPrevious = RuleJoin.Or;
+    [ObservableProperty] private bool _isFirst = true;
+
+    public bool ShowJoin => !IsFirst;
+
+    partial void OnIsFirstChanged(bool value) => OnPropertyChanged(nameof(ShowJoin));
+
+    public ExcludeRule ToModel() => new()
+    {
+        Field = Field,
+        Operator = Operator,
+        Value = Value ?? "",
+        JoinWithPrevious = JoinWithPrevious
+    };
+
+    public static ExcludeRuleRowViewModel FromModel(ExcludeRule rule) => new()
+    {
+        Field = rule.Field,
+        Operator = rule.Operator,
+        Value = rule.Value ?? "",
+        JoinWithPrevious = rule.JoinWithPrevious
+    };
+}
+
 public sealed record StorageChoice(StorageLayout Value, string Label);
+public sealed record NamedChoice<T>(T Value, string Label);

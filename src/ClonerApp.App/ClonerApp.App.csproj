@@ -11,11 +11,11 @@
     <Product>ProdigyDownloader</Product>
     <Company>ProdigyNova</Company>
     <Authors>ProdigyNova</Authors>
-    <Description>ProdigyDownloader by ProdigyNova — crawl websites and download images and videos.</Description>
-    <Copyright>Copyright (c) ProdigyNova — https://www.prodigynova.com</Copyright>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <Description>ProdigyDownloader by ProdigyNova: crawl websites and download images and videos.</Description>
+    <Copyright>Copyright (c) ProdigyNova - https://www.prodigynova.com</Copyright>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

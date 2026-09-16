@@ -57,6 +57,10 @@ public sealed class MediaDownloader
                 contentLength = headResponse.Content.Headers.ContentLength;
             }
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "HEAD failed for {Url}, continuing with GET", candidate.Url);
@@ -64,11 +68,16 @@ public sealed class MediaDownloader
 
         if (existing is { Status: AssetStatus.Downloaded })
         {
+            var hasValidator = !string.IsNullOrEmpty(etag) || !string.IsNullOrEmpty(lastModified);
             var unchanged =
                 (!string.IsNullOrEmpty(etag) && string.Equals(existing.ETag, etag, StringComparison.Ordinal)) ||
                 (!string.IsNullOrEmpty(lastModified) && string.Equals(existing.LastModified, lastModified, StringComparison.Ordinal));
 
-            if (unchanged || (string.IsNullOrEmpty(etag) && string.IsNullOrEmpty(lastModified)))
+            if (unchanged)
+                return DownloadOutcome.Skipped("Already archived");
+
+            // Once/Schedule: without validators, keep archive skip. Watch: fall through to re-check content.
+            if (!hasValidator && project.RunMode != RunMode.Monitor)
                 return DownloadOutcome.Skipped("Already archived");
         }
 

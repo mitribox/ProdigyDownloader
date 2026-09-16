@@ -25,14 +25,15 @@ public sealed class HtmlMediaExtractor
 
         foreach (var img in document.QuerySelectorAll("img[src], img[data-src], img[data-lazy-src]"))
         {
-            AddMedia(media, pageUrl, title, GetAttr(img, "src") ?? GetAttr(img, "data-src") ?? GetAttr(img, "data-lazy-src"));
-            ParseSrcSet(media, pageUrl, title, GetAttr(img, "srcset"));
+            AddMedia(media, pageUrl, title, GetAttr(img, "src") ?? GetAttr(img, "data-src") ?? GetAttr(img, "data-lazy-src"), "img");
+            ParseSrcSet(media, pageUrl, title, GetAttr(img, "srcset"), "img");
         }
 
         foreach (var source in document.QuerySelectorAll("source[src], source[srcset], video[src], video source[src], audio[src]"))
         {
-            AddMedia(media, pageUrl, title, GetAttr(source, "src"));
-            ParseSrcSet(media, pageUrl, title, GetAttr(source, "srcset"));
+            var tag = source.LocalName?.ToLowerInvariant() ?? "source";
+            AddMedia(media, pageUrl, title, GetAttr(source, "src"), tag);
+            ParseSrcSet(media, pageUrl, title, GetAttr(source, "srcset"), tag);
         }
 
         foreach (var anchor in document.QuerySelectorAll("a[href]"))
@@ -47,7 +48,7 @@ public sealed class HtmlMediaExtractor
             if (MediaExtensions.IsImageExtension(ext) || MediaExtensions.IsVideoExtension(ext))
             {
                 if (alwaysScanImageLinks)
-                    AddMedia(media, pageUrl, title, absolute.AbsoluteUri);
+                    AddMedia(media, pageUrl, title, absolute.AbsoluteUri, "a");
             }
             else if (LooksLikeHtmlPage(absolute))
             {
@@ -60,7 +61,7 @@ public sealed class HtmlMediaExtractor
             var styleValue = GetAttr(style, "style");
             if (string.IsNullOrWhiteSpace(styleValue)) continue;
             foreach (Match match in CssUrlRegex.Matches(styleValue))
-                AddMedia(media, pageUrl, title, match.Groups["url"].Value);
+                AddMedia(media, pageUrl, title, match.Groups["url"].Value, "css");
         }
 
         foreach (var styleTag in document.QuerySelectorAll("style"))
@@ -68,23 +69,23 @@ public sealed class HtmlMediaExtractor
             var css = styleTag.TextContent;
             if (string.IsNullOrWhiteSpace(css)) continue;
             foreach (Match match in CssUrlRegex.Matches(css))
-                AddMedia(media, pageUrl, title, match.Groups["url"].Value);
+                AddMedia(media, pageUrl, title, match.Groups["url"].Value, "css");
         }
 
         return new ExtractedPage(title, media, links.ToList());
     }
 
-    private static void ParseSrcSet(List<MediaCandidate> media, Uri pageUrl, string? title, string? srcset)
+    private static void ParseSrcSet(List<MediaCandidate> media, Uri pageUrl, string? title, string? srcset, string sourceTag)
     {
         if (string.IsNullOrWhiteSpace(srcset)) return;
         foreach (var part in srcset.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             var urlPart = part.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-            AddMedia(media, pageUrl, title, urlPart);
+            AddMedia(media, pageUrl, title, urlPart, sourceTag);
         }
     }
 
-    private static void AddMedia(List<MediaCandidate> media, Uri pageUrl, string? title, string? rawUrl)
+    private static void AddMedia(List<MediaCandidate> media, Uri pageUrl, string? title, string? rawUrl, string sourceTag)
     {
         if (string.IsNullOrWhiteSpace(rawUrl)) return;
         if (rawUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) return;
@@ -106,6 +107,7 @@ public sealed class HtmlMediaExtractor
             Url = normalized,
             SourcePageUrl = UrlNormalizer.Normalize(pageUrl),
             SourcePageTitle = title,
+            SourceTag = sourceTag,
             Extension = ext,
             IsImage = isImage,
             IsVideo = isVideo

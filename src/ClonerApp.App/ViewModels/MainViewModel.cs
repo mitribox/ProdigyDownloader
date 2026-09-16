@@ -26,6 +26,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private ProjectListItem? _selectedProject;
 
+    [ObservableProperty]
+    private string _pauseResumeLabel = "Pause";
+
+    [ObservableProperty]
+    private string _startStopLabel = "Start";
+
     public MainViewModel(IServiceScopeFactory scopeFactory, ICrawlEngine engine)
     {
         _scopeFactory = scopeFactory;
@@ -34,16 +40,48 @@ public partial class MainViewModel : ObservableObject
         _ = LoadProjectsAsync();
     }
 
+    partial void OnSelectedProjectChanged(ProjectListItem? value) => RefreshActionLabels();
+
+    private void RefreshActionLabels()
+    {
+        if (SelectedProject is null)
+        {
+            PauseResumeLabel = "Pause";
+            StartStopLabel = "Start";
+            return;
+        }
+
+        var running = _engine.IsRunning(SelectedProject.Id);
+        StartStopLabel = running ? "Stop" : "Start";
+        PauseResumeLabel = running && _engine.IsPaused(SelectedProject.Id) ? "Resume" : "Pause";
+    }
+
+    private static string StatusFromProgress(RunProgress e)
+    {
+        if (e.IsFailed) return "Failed";
+        if (e.IsCancelled) return "Cancelled";
+        if (e.IsCompleted) return "Completed";
+        if (e.IsPaused) return "Paused";
+        return "Running";
+    }
+
     private void OnProgressChanged(object? sender, RunProgress e)
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
             StatusText = e.Message;
             var item = Projects.FirstOrDefault(p => p.Id == e.ProjectId);
-            if (item is null) return;
-            item.LastStatus = e.IsFailed ? "Failed" : e.IsCompleted ? "Completed" : "Running";
-            item.Stats = $"↓ {e.Downloaded}  skip {e.Skipped}  filter {e.Filtered}  fail {e.Failed}";
-            if (e.IsCompleted || e.IsFailed)
+            if (item is not null)
+            {
+                item.LastStatus = StatusFromProgress(e);
+                if (e.RunId != Guid.Empty || e.Downloaded + e.Skipped + e.Failed + e.Filtered > 0)
+                    item.Stats = $"↓ {e.Downloaded}  skip {e.Skipped}  filter {e.Filtered}  fail {e.Failed}";
+            }
+
+            if (SelectedProject?.Id == e.ProjectId)
+                RefreshActionLabels();
+
+            if (e.IsCompleted || e.IsFailed || e.IsCancelled)
                 _ = LoadProjectsAsync();
         });
     }
@@ -51,29 +89,49 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadProjectsAsync()
     {
+        var selectedId = SelectedProject?.Id;
+
         using var scope = _scopeFactory.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IProjectRepository>();
         var runRepo = scope.ServiceProvider.GetRequiredService<IRunRepository>();
         var projects = await repo.GetAllAsync();
 
         Projects.Clear();
+        ProjectListItem? reselect = null;
         foreach (var p in projects)
         {
             var latest = await runRepo.GetLatestForProjectAsync(p.Id);
-            Projects.Add(new ProjectListItem
+            var status = latest?.Status.ToString() ?? "Never run";
+            if (_engine.IsRunning(p.Id))
+                status = _engine.IsPaused(p.Id) ? "Paused" : "Running";
+
+            var item = new ProjectListItem
             {
                 Id = p.Id,
                 Name = p.Name,
                 StartUrl = p.StartUrls.Split(['\r', '\n', ';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? "",
-                RunMode = p.RunMode.ToString(),
+                RunMode = FormatRunMode(p.RunMode),
                 OutputRoot = p.OutputRoot,
                 IsEnabled = p.IsEnabled,
-                NextRun = p.NextRunAtUtc?.ToLocalTime().ToString("g") ?? "—",
-                LastStatus = latest?.Status.ToString() ?? "Never run",
+                NextRun = p.NextRunAtUtc?.ToLocalTime().ToString("g") ?? "-",
+                LastStatus = status,
                 Stats = latest is null ? "" : $"↓ {latest.Downloaded}  skip {latest.Skipped}"
-            });
+            };
+            Projects.Add(item);
+            if (selectedId == p.Id)
+                reselect = item;
         }
+
+        SelectedProject = reselect;
+        RefreshActionLabels();
     }
+
+    private static string FormatRunMode(RunMode mode) => mode switch
+    {
+        RunMode.Monitor => "Watch",
+        RunMode.Schedule => "Schedule",
+        _ => "Once"
+    };
 
     [RelayCommand]
     private void NewProject()
@@ -114,6 +172,7 @@ public partial class MainViewModel : ObservableObject
         StatusText = $"Starting {SelectedProject.Name}…";
         SelectedProject.LastStatus = "Running";
         var id = SelectedProject.Id;
+        RefreshActionLabels();
         _ = Task.Run(async () =>
         {
             try
@@ -132,8 +191,52 @@ public partial class MainViewModel : ObservableObject
     private void CancelSelected()
     {
         if (SelectedProject is null) return;
+        if (!_engine.IsRunning(SelectedProject.Id))
+        {
+            StatusText = "No active run to cancel.";
+            return;
+        }
+
         _engine.Cancel(SelectedProject.Id);
+        SelectedProject.LastStatus = "Cancelling…";
         StatusText = "Cancel requested…";
+        RefreshActionLabels();
+    }
+
+    [RelayCommand]
+    private void PauseSelected()
+    {
+        if (SelectedProject is null) return;
+        if (!_engine.IsRunning(SelectedProject.Id))
+        {
+            StatusText = "No active run to pause.";
+            return;
+        }
+
+        if (_engine.IsPaused(SelectedProject.Id))
+        {
+            _engine.Resume(SelectedProject.Id);
+            SelectedProject.LastStatus = "Running";
+            StatusText = "Resumed.";
+        }
+        else
+        {
+            _engine.Pause(SelectedProject.Id);
+            SelectedProject.LastStatus = "Paused";
+            StatusText = "Paused.";
+        }
+
+        RefreshActionLabels();
+    }
+
+    [RelayCommand]
+    private async Task StartOrStopSelectedAsync()
+    {
+        if (SelectedProject is null) return;
+        if (_engine.IsRunning(SelectedProject.Id))
+            CancelSelected();
+        else
+            await StartSelectedAsync();
     }
 
     [RelayCommand]
@@ -146,6 +249,9 @@ public partial class MainViewModel : ObservableObject
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
         if (result != MessageBoxResult.Yes) return;
+
+        if (_engine.IsRunning(SelectedProject.Id))
+            _engine.Cancel(SelectedProject.Id);
 
         using var scope = _scopeFactory.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IProjectRepository>();
@@ -202,7 +308,7 @@ public partial class ProjectListItem : ObservableObject
     public bool IsEnabled { get; set; }
 
     [ObservableProperty]
-    private string _nextRun = "—";
+    private string _nextRun = "-";
 
     [ObservableProperty]
     private string _lastStatus = "";
